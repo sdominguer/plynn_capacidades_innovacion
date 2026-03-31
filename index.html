@@ -492,6 +492,35 @@ input:focus, select:focus, textarea:focus {
   .container { padding: 20px; max-width: 100%; }
   .card, .radar-container, .state-meaning, .roadmap-horizon, .etapa-sum-card { box-shadow: none; border: 1px solid #ddd; }
 }
+
+/* ── TOAST NOTIFICATION ── */
+.toast {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  z-index: 9999;
+  background: #1a8a4a;
+  color: #fff;
+  padding: 16px 24px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transform: translateY(80px);
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(.23,1,.32,1);
+  max-width: 340px;
+  pointer-events: none;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.error { background: #cc2222; }
+.toast-icon { font-size: 20px; flex-shrink: 0; }
+.toast-body { }
+.toast-title { font-size: 13px; font-weight: 800; margin-bottom: 2px; }
+.toast-msg   { font-size: 11px; font-weight: 500; opacity: 0.85; }
 </style>
 </head>
 <body>
@@ -622,10 +651,14 @@ input:focus, select:focus, textarea:focus {
     </div>
   </div>
 
-  <div class="consent-box">
-    <input type="checkbox" id="consent">
-    <label for="consent">Al diligenciar este diagnóstico, autorizo a PLYNN a recopilar y utilizar la información suministrada únicamente para fines relacionados con la evaluación, análisis y fortalecimiento de mis capacidades de innovación. Los datos no serán utilizados para otros propósitos ni compartidos con terceros sin autorización previa.</label>
+  <div class="consent-box" id="consent-box" style="border:2px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;align-items:flex-start;gap:12px;margin-top:16px;background:rgba(26,51,101,0.04);transition:border-color 0.2s">
+    <input type="checkbox" id="consent" style="width:20px;height:20px;margin-top:3px;flex-shrink:0;cursor:pointer;accent-color:var(--navy)">
+    <label for="consent" style="cursor:pointer">
+      <span style="font-size:11px;font-weight:800;color:var(--red);text-transform:uppercase;letter-spacing:1px">Requerido *</span><br>
+      <span style="font-size:13px;color:var(--text-mid);line-height:1.6;font-weight:500">Al diligenciar este diagnóstico, autorizo a PLYNN a recopilar y utilizar la información suministrada únicamente para fines relacionados con la evaluación, análisis y fortalecimiento de mis capacidades de innovación. Los datos no serán utilizados para otros propósitos ni compartidos con terceros sin autorización previa.</span>
+    </label>
   </div>
+  <div id="consent-error" style="display:none;color:var(--red);font-size:12px;font-weight:700;margin-top:8px;padding-left:4px">⚠ Debes aceptar la autorización de datos para continuar.</div>
 
   <div class="btn-row">
     <button class="btn btn-secondary" onclick="goTo(0)">← Volver</button>
@@ -960,13 +993,25 @@ function validateAndGoTo2() {
     if (!el.value.trim()) {
       el.focus();
       el.style.borderColor = 'var(--red)';
-      setTimeout(() => el.style.borderColor = '', 2000);
-      alert('Por favor completa todos los campos requeridos.');
+      el.style.boxShadow = '0 0 0 3px rgba(255,67,67,0.15)';
+      setTimeout(() => { el.style.borderColor = ''; el.style.boxShadow = ''; }, 2500);
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
   }
-  if (!document.getElementById('consent').checked) {
-    alert('Por favor acepta la autorización de datos para continuar.');
+  const consentEl  = document.getElementById('consent');
+  const consentBox = document.getElementById('consent-box');
+  const consentErr = document.getElementById('consent-error');
+  if (!consentEl.checked) {
+    consentBox.style.borderColor = 'var(--red)';
+    consentBox.style.boxShadow   = '0 0 0 3px rgba(255,67,67,0.15)';
+    consentErr.style.display     = 'block';
+    consentBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    consentEl.addEventListener('change', () => {
+      consentBox.style.borderColor = '';
+      consentBox.style.boxShadow   = '';
+      consentErr.style.display     = 'none';
+    }, { once: true });
     return;
   }
   goTo(2);
@@ -975,17 +1020,82 @@ function validateAndGoTo2() {
 function validateAndGoTo3() {
   const answered = Object.keys(appState.scores).length;
   if (answered < 14) {
-    alert(`Por favor evalúa todas las 14 capacidades. Te faltan ${14 - answered}.`);
     for (const cap of CAPACIDADES) {
       if (appState.scores[cap.id] === undefined) {
         document.getElementById(`card-${cap.id}`).scrollIntoView({ behavior:'smooth', block:'center' });
+        const card = document.getElementById(`card-${cap.id}`);
+        card.style.borderColor = 'var(--red)';
+        card.style.boxShadow   = '0 0 0 3px rgba(255,67,67,0.15)';
+        setTimeout(() => { card.style.borderColor = ''; card.style.boxShadow = ''; }, 2500);
         break;
       }
     }
     return;
   }
   buildResults();
+  sendToSheets();
   goTo(3);
+}
+
+// ═══════════════════════════════════════════
+// SEND TO GOOGLE SHEETS
+// ═══════════════════════════════════════════
+const APPS_SCRIPT_URL = 'PEGA_AQUI_TU_URL_DE_APPS_SCRIPT';
+
+function showToast(ok) {
+  const toast = document.getElementById('toast');
+  document.getElementById('toast-icon').textContent  = ok ? '✓' : '⚠';
+  document.getElementById('toast-title').textContent = ok ? 'Diagnóstico guardado' : 'No se pudo guardar';
+  document.getElementById('toast-msg').textContent   = ok
+    ? 'Los datos se registraron en Google Sheets correctamente.'
+    : 'Revisa la URL del Apps Script o tu conexión a internet.';
+  toast.className = 'toast' + (ok ? '' : ' error');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 5000);
+}
+
+function sendToSheets() {
+  if (APPS_SCRIPT_URL === 'PEGA_AQUI_TU_URL_DE_APPS_SCRIPT') {
+    console.info('SGI PLYNN: Apps Script URL no configurada. Datos no enviados.');
+    return;
+  }
+
+  const results = calcResults();
+  const { etapaScores, globalAvg, globalPct, globalState } = results;
+
+  const payload = {
+    fecha:               new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
+    empresa:             document.getElementById('empresa').value,
+    sector:              document.getElementById('sector').value,
+    tamano:              document.getElementById('tamano').value,
+    pais_ciudad:         document.getElementById('pais_ciudad').value,
+    nombre:              document.getElementById('nombre').value,
+    cargo:               document.getElementById('cargo').value,
+    email:               document.getElementById('email').value,
+    compromiso_apoyo:     appState.commitment.apoyo     || 'Sin respuesta',
+    compromiso_recursos:  appState.commitment.recursos  || 'Sin respuesta',
+    compromiso_prioridad: appState.commitment.prioridad || 'Sin respuesta',
+    ...Object.fromEntries(CAPACIDADES.map(c => [c.codigo,        appState.scores[c.id]])),
+    ...Object.fromEntries(CAPACIDADES.map(c => [c.codigo+'_desc', levelLabel(appState.scores[c.id])])),
+    etapa1_avg: etapaScores[1].avg, etapa1_pct: etapaScores[1].pct,
+    etapa2_avg: etapaScores[2].avg, etapa2_pct: etapaScores[2].pct,
+    etapa3_avg: etapaScores[3].avg, etapa3_pct: etapaScores[3].pct,
+    etapa4_avg: etapaScores[4].avg, etapa4_pct: etapaScores[4].pct,
+    global_avg: parseFloat(globalAvg).toFixed(2),
+    global_pct: parseFloat(globalPct).toFixed(1),
+    estado:     globalState.name,
+  };
+
+  // mode: no-cors → no podemos leer la respuesta, pero el script la recibe igual.
+  // Por eso asumimos éxito si no hay error de red.
+  fetch(APPS_SCRIPT_URL, {
+    method:  'POST',
+    mode:    'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(payload)
+  })
+  .then(() => showToast(true))
+  .catch(() => showToast(false));
 }
 
 // ═══════════════════════════════════════════
@@ -1279,5 +1389,14 @@ function downloadJSON() {
 buildCapacities();
 updateProgress(0);
 </script>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-icon" id="toast-icon">✓</div>
+  <div class="toast-body">
+    <div class="toast-title" id="toast-title">Datos guardados</div>
+    <div class="toast-msg"  id="toast-msg">Tu diagnóstico fue registrado en Google Sheets.</div>
+  </div>
+</div>
 </body>
 </html>
