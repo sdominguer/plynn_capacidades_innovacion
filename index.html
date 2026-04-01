@@ -1056,7 +1056,7 @@ function showToast(ok) {
 
 function sendToSheets() {
   if (APPS_SCRIPT_URL === 'PEGA_AQUI_TU_URL_DE_APPS_SCRIPT') {
-    console.info('SGI PLYNN: Apps Script URL no configurada. Datos no enviados.');
+    console.info('SGI PLYNN: Apps Script URL no configurada.');
     return;
   }
 
@@ -1075,8 +1075,8 @@ function sendToSheets() {
     compromiso_apoyo:     appState.commitment.apoyo     || 'Sin respuesta',
     compromiso_recursos:  appState.commitment.recursos  || 'Sin respuesta',
     compromiso_prioridad: appState.commitment.prioridad || 'Sin respuesta',
-    ...Object.fromEntries(CAPACIDADES.map(c => [c.codigo,        appState.scores[c.id]])),
-    ...Object.fromEntries(CAPACIDADES.map(c => [c.codigo+'_desc', levelLabel(appState.scores[c.id])])),
+    ...Object.fromEntries(CAPACIDADES.map(c => [c.codigo,             appState.scores[c.id]])),
+    ...Object.fromEntries(CAPACIDADES.map(c => [c.codigo + '_desc',   levelLabel(appState.scores[c.id])])),
     etapa1_avg: etapaScores[1].avg, etapa1_pct: etapaScores[1].pct,
     etapa2_avg: etapaScores[2].avg, etapa2_pct: etapaScores[2].pct,
     etapa3_avg: etapaScores[3].avg, etapa3_pct: etapaScores[3].pct,
@@ -1086,6 +1086,12 @@ function sendToSheets() {
     estado:     globalState.name,
   };
 
+  // ✅ URLSearchParams sobrevive a no-cors (a diferencia de JSON con Content-Type: application/json)
+  const form = new URLSearchParams();
+  form.append('data', JSON.stringify(payload));
+
+  fetch(A
+    
   // mode: no-cors → no podemos leer la respuesta, pero el script la recibe igual.
   // Por eso asumimos éxito si no hay error de red.
   fetch(APPS_SCRIPT_URL, {
