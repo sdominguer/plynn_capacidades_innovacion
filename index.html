@@ -438,7 +438,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--cyan); box-shado
 // ═══════════════════════════════════════════════════
 // CONFIGURACIÓN — PEGA AQUÍ TU WEB APP URL
 // ═══════════════════════════════════════════════════
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzeKIym6H3u7d2ZWT2pdArH4IGNPi_n_XPnEezN1lXwxfaTKfbiOFNnjbq0Q3aDVJumcg/exec';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbze2TsvoKXXK-13HDPHwunygPTyjwzgy_7zKUp9y3TYntDxHQP70BUp1mrmbh-83dKH/exec';
 
 // ═══════════════════════════════════════════════════
 // DATA
@@ -654,11 +654,10 @@ function goTo(n) {
   document.getElementById(`screen-${n}`).classList.add('active');
   state.currentScreen = n;
   updateProgress(n);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
 }
 
 function updateProgress(n) {
-  document.getElementById('step-num').textContent = n + 1;
   document.getElementById('progress-label').innerHTML = `Paso <span>${n + 1}</span> de 7 · ${SCREEN_LABELS[n]}`;
   for (let i = 0; i < 7; i++) {
     const pill = document.getElementById(`pill-${i}`);
@@ -894,8 +893,8 @@ async function sendToSheets() {
     compromiso_apoyo: state.commitment.apoyo || '',
     compromiso_recursos: state.commitment.recursos || '',
     compromiso_prioridad: state.commitment.prioridad || '',
-    // Scores por capacidad
-    ...Object.fromEntries(CAPACIDADES.map(c => [`M${c.id-1}_${c.codigo}`, state.scores[c.id] ?? ''])),
+    // Scores por capacidad — claves simples M00 a M13
+    ...Object.fromEntries(CAPACIDADES.map(c => [`cap_${c.codigo}`, state.scores[c.id] ?? ''])),
     // Promedios por etapa
     etapa1_preparar_pct: etapaScores[1].pct,
     etapa2_construir_pct: etapaScores[2].pct,
